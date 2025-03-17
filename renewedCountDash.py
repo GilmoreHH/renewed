@@ -45,7 +45,7 @@ def connect_to_salesforce():
         return 0, 0
 
 # Streamlit UI
-st.title("Renewal Opportunity Dashboard")
+st.title("Renewal Opportunity Percentage")
 
 # Sidebar for user interaction
 st.sidebar.header("Dashboard Options")
