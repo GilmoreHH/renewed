@@ -10,6 +10,14 @@ import numpy as np
 # Load environment variables from .env file
 load_dotenv()
 
+
+# Set page configuration
+st.set_page_config(
+    page_title="Renewed Opportunity",
+    page_icon="🔄",  # Circular arrow to represent renewal
+    layout="wide",  # Use a wide layout for the app
+)
+
 # Define all stages and their probabilities
 def get_stage_metadata():
     """Return a dictionary of stages with their probabilities and order."""
