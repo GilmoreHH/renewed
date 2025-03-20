@@ -159,7 +159,7 @@ def connect_to_salesforce():
         # Sort by count
         loss_reason_df = loss_reason_df.sort_values('Count', ascending=False)
         
-        # Get data for weekly trend analysis (last 8 weeks)
+        # Get data for weekly trend analysis (last quarter in weeks)
         all_opps_query = """
             SELECT 
                 Id, 
@@ -168,7 +168,7 @@ def connect_to_salesforce():
                 Loss_Reason__c
             FROM Opportunity
             WHERE New_Business_or_Renewal__c IN ('Personal Lines - Renewal', 'Commercial Lines - Renewal')
-            AND CloseDate = LAST_N_DAYS:56
+            AND CloseDate = LAST_N_DAYS:91
         """
         all_opps_results = sf.query_all(all_opps_query)
         
