@@ -18,7 +18,6 @@ st.set_page_config(
     layout="wide",  # Use a wide layout for the app
 )
 
-
 # Define all stages and their probabilities
 def get_stage_metadata():
     """Return a dictionary of stages with their probabilities and order."""
@@ -136,7 +135,18 @@ def get_iso_week_calendar():
             week["From"] = iso_weeks[week_num]["from"]
             week["To"] = iso_weeks[week_num]["to"]
     
-    return pd.DataFrame(weeks)
+    return pd.DataFrame(weeks), iso_weeks
+
+# Function to get current ISO week
+def get_current_iso_week():
+    """Calculate the ISO week number for the current date."""
+    # Get current date
+    today = datetime.date.today()
+    
+    # Calculate ISO week number
+    year, week_num, _ = today.isocalendar()
+    
+    return year, week_num
 
 # Function to connect to Salesforce and run SOQL queries
 def connect_to_salesforce():
@@ -325,6 +335,26 @@ def connect_to_salesforce():
 # Streamlit UI
 st.title("Renewal Opportunity Dashboard")
 
+# Get current date and ISO week information
+today = datetime.datetime.today()
+iso_year, iso_week = get_current_iso_week()
+iso_calendar_df, iso_weeks = get_iso_week_calendar()
+
+# Create a prominent date and week banner
+current_week_info = iso_weeks.get(iso_week, None)
+if current_week_info:
+    date_range = f"{current_week_info['from']} to {current_week_info['to']}"
+else:
+    date_range = "Week date range not found"
+
+# Display current date and ISO week information in a highlighted box
+st.markdown(f"""
+<div style="padding:10px; border-radius:5px; margin-bottom:20px;">
+    <h3 style="margin:0; color:white;">Today: Saturday, March 22, 2025</h3>
+    <h4 style="margin:0; color:white;">ISO Week: Week 12, March 17-23, 2025</h4>
+</div>
+""", unsafe_allow_html=True)
+
 # Sidebar for user interaction
 st.sidebar.header("Dashboard Options")
 show_data = st.sidebar.checkbox("Show Raw Data", value=False)
@@ -363,7 +393,7 @@ with col4:
 # ISO Week Calendar expander
 if show_iso_calendar:
     with st.expander("ISO Week Calendar 2025", expanded=True):
-        iso_calendar_df = get_iso_week_calendar()
+        iso_calendar_df, _ = get_iso_week_calendar()
         
         # Format the calendar in a 13x4 grid (13 weeks per quarter, 4 quarters per year)
         col1, col2, col3, col4 = st.columns(4)
@@ -458,6 +488,9 @@ elif chart_type == "Pipeline by Stage":
 
 elif chart_type == "Weekly Trend":
     if not weekly_df.empty:
+        # Highlight current week in the visualization
+        current_week_key = f"{iso_year}-W{iso_week:02d}"
+        
         # Add a reference to the ISO week calendar
         st.info("👆 Enable 'Show ISO Week Calendar' in the sidebar to see the date ranges for each ISO week.")
         
@@ -468,6 +501,18 @@ elif chart_type == "Weekly Trend":
             title="Weekly Renewal Opportunity Trend",
             markers=True,
         )
+        
+        # Add a vertical line for the current week if it exists in the data
+        if current_week_key in weekly_df['Week'].values:
+            fig.add_vline(
+                x=current_week_key,
+                line_width=2,
+                line_dash="dash",
+                line_color="red",
+                annotation_text="Current Week",
+                annotation_position="top right"
+            )
+            
         fig.update_layout(yaxis_title="Count")
         st.plotly_chart(fig)
         
@@ -479,6 +524,18 @@ elif chart_type == "Weekly Trend":
             title="Weekly Win Rate Trend (%)",
             markers=True,
         )
+        
+        # Add a vertical line for the current week if it exists in the data
+        if current_week_key in weekly_df['Week'].values:
+            fig2.add_vline(
+                x=current_week_key,
+                line_width=2,
+                line_dash="dash",
+                line_color="red",
+                annotation_text="Current Week",
+                annotation_position="top right"
+            )
+            
         fig2.update_layout(yaxis_title="Win Rate (%)")
         st.plotly_chart(fig2)
     else:
