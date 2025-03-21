@@ -11,6 +11,14 @@ import datetime
 # Load environment variables from .env file
 load_dotenv()
 
+# Set page configuration with an icon for Renewals Count Dashboard
+st.set_page_config(
+    page_title="Renewals Count",
+    page_icon="🔄",  # Icon representing renewals (e.g., a refresh/renewal symbol)
+    layout="wide",  # Use a wide layout for the app
+)
+
+
 # Define all stages and their probabilities
 def get_stage_metadata():
     """Return a dictionary of stages with their probabilities and order."""
