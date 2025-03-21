@@ -6,17 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+import datetime
 
 # Load environment variables from .env file
 load_dotenv()
-
-
-# Set page configuration
-st.set_page_config(
-    page_title="Renewed Opportunity",
-    page_icon="🔄",  # Circular arrow to represent renewal
-    layout="wide",  # Use a wide layout for the app
-)
 
 # Define all stages and their probabilities
 def get_stage_metadata():
@@ -60,6 +53,82 @@ def get_loss_reasons():
         "Unknown",
         "Property Damaged Or Lost"
     ]
+
+# Function to get ISO week calendar data for 2025
+def get_iso_week_calendar():
+    """Return a DataFrame with ISO week numbers and date ranges for 2025."""
+    weeks = []
+    for week_num in range(1, 53):
+        # Create entry for each week
+        weeks.append({
+            "Week": f"Week {week_num:02d}",
+            "From": "",
+            "To": ""
+        })
+    
+    # Populate with the specific dates provided
+    iso_weeks = {
+        1: {"from": "Dec 30, 2024", "to": "Jan 5, 2025"},
+        2: {"from": "Jan 6, 2025", "to": "Jan 12, 2025"},
+        3: {"from": "Jan 13, 2025", "to": "Jan 19, 2025"},
+        4: {"from": "Jan 20, 2025", "to": "Jan 26, 2025"},
+        5: {"from": "Jan 27, 2025", "to": "Feb 2, 2025"},
+        6: {"from": "Feb 3, 2025", "to": "Feb 9, 2025"},
+        7: {"from": "Feb 10, 2025", "to": "Feb 16, 2025"},
+        8: {"from": "Feb 17, 2025", "to": "Feb 23, 2025"},
+        9: {"from": "Feb 24, 2025", "to": "Mar 2, 2025"},
+        10: {"from": "Mar 3, 2025", "to": "Mar 9, 2025"},
+        11: {"from": "Mar 10, 2025", "to": "Mar 16, 2025"},
+        12: {"from": "Mar 17, 2025", "to": "Mar 23, 2025"},
+        13: {"from": "Mar 24, 2025", "to": "Mar 30, 2025"},
+        14: {"from": "Mar 31, 2025", "to": "Apr 6, 2025"},
+        15: {"from": "Apr 7, 2025", "to": "Apr 13, 2025"},
+        16: {"from": "Apr 14, 2025", "to": "Apr 20, 2025"},
+        17: {"from": "Apr 21, 2025", "to": "Apr 27, 2025"},
+        18: {"from": "Apr 28, 2025", "to": "May 4, 2025"},
+        19: {"from": "May 5, 2025", "to": "May 11, 2025"},
+        20: {"from": "May 12, 2025", "to": "May 18, 2025"},
+        21: {"from": "May 19, 2025", "to": "May 25, 2025"},
+        22: {"from": "May 26, 2025", "to": "Jun 1, 2025"},
+        23: {"from": "Jun 2, 2025", "to": "Jun 8, 2025"},
+        24: {"from": "Jun 9, 2025", "to": "Jun 15, 2025"},
+        25: {"from": "Jun 16, 2025", "to": "Jun 22, 2025"},
+        26: {"from": "Jun 23, 2025", "to": "Jun 29, 2025"},
+        27: {"from": "Jun 30, 2025", "to": "Jul 6, 2025"},
+        28: {"from": "Jul 7, 2025", "to": "Jul 13, 2025"},
+        29: {"from": "Jul 14, 2025", "to": "Jul 20, 2025"},
+        30: {"from": "Jul 21, 2025", "to": "Jul 27, 2025"},
+        31: {"from": "Jul 28, 2025", "to": "Aug 3, 2025"},
+        32: {"from": "Aug 4, 2025", "to": "Aug 10, 2025"},
+        33: {"from": "Aug 11, 2025", "to": "Aug 17, 2025"},
+        34: {"from": "Aug 18, 2025", "to": "Aug 24, 2025"},
+        35: {"from": "Aug 25, 2025", "to": "Aug 31, 2025"},
+        36: {"from": "Sep 1, 2025", "to": "Sep 7, 2025"},
+        37: {"from": "Sep 8, 2025", "to": "Sep 14, 2025"},
+        38: {"from": "Sep 15, 2025", "to": "Sep 21, 2025"},
+        39: {"from": "Sep 22, 2025", "to": "Sep 28, 2025"},
+        40: {"from": "Sep 29, 2025", "to": "Oct 5, 2025"},
+        41: {"from": "Oct 6, 2025", "to": "Oct 12, 2025"},
+        42: {"from": "Oct 13, 2025", "to": "Oct 19, 2025"},
+        43: {"from": "Oct 20, 2025", "to": "Oct 26, 2025"},
+        44: {"from": "Oct 27, 2025", "to": "Nov 2, 2025"},
+        45: {"from": "Nov 3, 2025", "to": "Nov 9, 2025"},
+        46: {"from": "Nov 10, 2025", "to": "Nov 16, 2025"},
+        47: {"from": "Nov 17, 2025", "to": "Nov 23, 2025"},
+        48: {"from": "Nov 24, 2025", "to": "Nov 30, 2025"},
+        49: {"from": "Dec 1, 2025", "to": "Dec 7, 2025"},
+        50: {"from": "Dec 8, 2025", "to": "Dec 14, 2025"},
+        51: {"from": "Dec 15, 2025", "to": "Dec 21, 2025"},
+        52: {"from": "Dec 22, 2025", "to": "Dec 28, 2025"},
+    }
+    
+    for i, week in enumerate(weeks):
+        week_num = i + 1
+        if week_num in iso_weeks:
+            week["From"] = iso_weeks[week_num]["from"]
+            week["To"] = iso_weeks[week_num]["to"]
+    
+    return pd.DataFrame(weeks)
 
 # Function to connect to Salesforce and run SOQL queries
 def connect_to_salesforce():
@@ -159,7 +228,7 @@ def connect_to_salesforce():
         # Sort by count
         loss_reason_df = loss_reason_df.sort_values('Count', ascending=False)
         
-        # Get data for weekly trend analysis (last quarter in weeks)
+        # Get data for weekly trend analysis (last 8 weeks)
         all_opps_query = """
             SELECT 
                 Id, 
@@ -263,6 +332,9 @@ opportunity_type = st.sidebar.selectbox(
     index=0
 )
 
+# Sidebar ISO Week Calendar
+show_iso_calendar = st.sidebar.checkbox("Show ISO Week Calendar", value=False)
+
 # Main content
 stage_df, loss_reason_df, weekly_df, total_opportunities, closed_won_count, closed_lost_count, other_stages_count = connect_to_salesforce()
 
@@ -279,6 +351,30 @@ with col3:
 with col4:
     win_rate = (closed_won_count / total_opportunities * 100) if total_opportunities > 0 else 0
     st.metric("Win Rate", f"{win_rate:.2f}%")
+
+# ISO Week Calendar expander
+if show_iso_calendar:
+    with st.expander("ISO Week Calendar 2025", expanded=True):
+        iso_calendar_df = get_iso_week_calendar()
+        
+        # Format the calendar in a 13x4 grid (13 weeks per quarter, 4 quarters per year)
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.subheader("Q1 (Weeks 1-13)")
+            st.dataframe(iso_calendar_df.iloc[0:13], hide_index=True)
+        
+        with col2:
+            st.subheader("Q2 (Weeks 14-26)")
+            st.dataframe(iso_calendar_df.iloc[13:26], hide_index=True)
+        
+        with col3:
+            st.subheader("Q3 (Weeks 27-39)")
+            st.dataframe(iso_calendar_df.iloc[26:39], hide_index=True)
+        
+        with col4:
+            st.subheader("Q4 (Weeks 40-52)")
+            st.dataframe(iso_calendar_df.iloc[39:52], hide_index=True)
 
 # Visualization selector
 chart_type = st.sidebar.selectbox(
@@ -354,6 +450,9 @@ elif chart_type == "Pipeline by Stage":
 
 elif chart_type == "Weekly Trend":
     if not weekly_df.empty:
+        # Add a reference to the ISO week calendar
+        st.info("👆 Enable 'Show ISO Week Calendar' in the sidebar to see the date ranges for each ISO week.")
+        
         fig = px.line(
             weekly_df,
             x="Week",
@@ -495,6 +594,10 @@ if not weekly_df.empty:
     display_df = weekly_df.copy()
     display_df['WinRate'] = display_df['WinRate'].round(2).astype(str) + '%'
     st.dataframe(display_df)
+    
+    # Add reminder about ISO week calendar
+    if not show_iso_calendar:
+        st.info("📅 Enable 'Show ISO Week Calendar' in the sidebar to see the date ranges for each ISO week.")
 
 # Optionally show raw data
 if show_data:
@@ -507,3 +610,6 @@ if show_data:
     
     st.write("Weekly Trend Data:")
     st.dataframe(weekly_df)
+    
+    st.write("ISO Week Calendar:")
+    st.dataframe(get_iso_week_calendar())
