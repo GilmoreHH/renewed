@@ -149,8 +149,8 @@ def get_current_iso_week():
     return year, week_num
 
 # Function to connect to Salesforce and run SOQL queries
-def connect_to_salesforce():
-    """Connect to Salesforce and execute SOQL queries."""
+def connect_to_salesforce(start_date=None, end_date=None):
+    """Connect to Salesforce and execute SOQL queries with optional date range."""
     try:
         # Salesforce connection using environment variables
         sf = Salesforce(
@@ -162,12 +162,20 @@ def connect_to_salesforce():
         # Get stage metadata
         stage_metadata = get_stage_metadata()
         
+        # Prepare date filter
+        date_filter = ""
+        if start_date and end_date:
+            # Convert dates to Salesforce date format (YYYY-MM-DD)
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            end_date_str = end_date.strftime('%Y-%m-%d')
+            date_filter = f"AND CloseDate >= {start_date_str} AND CloseDate <= {end_date_str}"
+        
         # Query to get the count of renewal opportunities by stage
-        stage_query = """
+        stage_query = f"""
             SELECT StageName, COUNT(Id) oppCount
             FROM Opportunity
             WHERE New_Business_or_Renewal__c IN ('Personal Lines - Renewal', 'Commercial Lines - Renewal')
-            AND CloseDate = LAST_N_DAYS:7
+            {date_filter}
             GROUP BY StageName
         """
         stage_results = sf.query_all(stage_query)
@@ -211,12 +219,12 @@ def connect_to_salesforce():
         all_loss_reasons = get_loss_reasons()
         
         # Query to get reasons for closed lost opportunities
-        loss_reason_query = """
+        loss_reason_query = f"""
             SELECT Loss_Reason__c, COUNT(Id) reasonCount
             FROM Opportunity
             WHERE New_Business_or_Renewal__c IN ('Personal Lines - Renewal', 'Commercial Lines - Renewal')
             AND StageName = 'Closed Lost'
-            AND CloseDate = LAST_N_DAYS:7
+            {date_filter}
             GROUP BY Loss_Reason__c
             ORDER BY COUNT(Id) DESC
         """
@@ -246,8 +254,8 @@ def connect_to_salesforce():
         # Sort by count
         loss_reason_df = loss_reason_df.sort_values('Count', ascending=False)
         
-        # Get data for weekly trend analysis (last 8 weeks)
-        all_opps_query = """
+        # Get data for weekly trend analysis
+        weekly_query = f"""
             SELECT 
                 Id, 
                 CloseDate, 
@@ -255,12 +263,9 @@ def connect_to_salesforce():
                 Loss_Reason__c
             FROM Opportunity
             WHERE New_Business_or_Renewal__c IN ('Personal Lines - Renewal', 'Commercial Lines - Renewal')
-            AND CloseDate = LAST_N_DAYS:91
+            {date_filter}
         """
-        all_opps_results = sf.query_all(all_opps_query)
-        
-        # Get stage metadata
-        stage_metadata = get_stage_metadata()
+        all_opps_results = sf.query_all(weekly_query)
         
         # Process opportunities by week
         import datetime
@@ -340,29 +345,75 @@ today = datetime.datetime.today()
 iso_year, iso_week = get_current_iso_week()
 iso_calendar_df, iso_weeks = get_iso_week_calendar()
 
-# Create a prominent date and week banner
+# Dynamically display current date and ISO week information
 current_week_info = iso_weeks.get(iso_week, None)
 if current_week_info:
     date_range = f"{current_week_info['from']} to {current_week_info['to']}"
 else:
     date_range = "Week date range not found"
 
-# Display current date and ISO week information in a highlighted box
-st.markdown(f"""
-<div style="padding:10px; border-radius:5px; margin-bottom:20px;">
-    <h3 style="margin:0; color:white;">Today: Saturday, March 22, 2025</h3>
-    <h4 style="margin:0; color:white;">ISO Week: Week 12, March 17-23, 2025</h4>
-</div>
-""", unsafe_allow_html=True)
+st.info(f"Today: {today.strftime('%A, %B %d, %Y')}\nISO Week: Week {iso_week} ({date_range})")
+
+# Display reporting period information
+if st.session_state.get("period_start") and st.session_state.get("period_end"):
+    st.subheader("Reporting Period")
+    if st.session_state.get("selected_period") == "Month":
+        period_display = f"{st.session_state['period_start'].strftime('%B %Y')}"
+    elif st.session_state.get("selected_period") == "Week":
+        period_display = f"Week of {st.session_state['period_start'].strftime('%B %d, %Y')} to {st.session_state['period_end'].strftime('%B %d, %Y')}"
+    else:  # Quarter
+        quarter_num = (st.session_state['period_start'].month - 1) // 3 + 1
+        period_display = f"Q{quarter_num} {st.session_state['period_start'].year}"
+    
+    st.info(f"Reporting Period: {period_display}")
 
 # Sidebar for user interaction
 st.sidebar.header("Dashboard Options")
-show_data = st.sidebar.checkbox("Show Raw Data", value=False)
-time_period = st.sidebar.selectbox(
-    "Select Time Period",
-    options=["Last 7 Days", "Last 30 Days", "Last Quarter"],
-    index=0
+
+# Custom Date Range Picker
+st.sidebar.subheader("Date Range Selection")
+date_range_type = st.sidebar.radio(
+    "Select Date Range Type",
+    ["Predefined", "Custom"]
 )
+
+# Date range selection logic
+if date_range_type == "Predefined":
+    time_period = st.sidebar.selectbox(
+        "Select Time Period",
+        options=["Last 7 Days", "Last 30 Days", "Last Quarter"],
+        index=0
+    )
+    
+    # Determine start and end dates based on predefined periods
+    if time_period == "Last 7 Days":
+        start_date = today - datetime.timedelta(days=7)
+        end_date = today
+    elif time_period == "Last 30 Days":
+        start_date = today - datetime.timedelta(days=30)
+        end_date = today
+    else:  # Last Quarter
+        start_date = today - datetime.timedelta(days=90)
+        end_date = today
+else:
+    # Custom date range picker
+    start_date = st.sidebar.date_input(
+        "Start Date", 
+        value=today - datetime.timedelta(days=30),
+        max_value=today
+    )
+    end_date = st.sidebar.date_input(
+        "End Date", 
+        value=today,
+        max_value=today
+    )
+
+    # Validate date range
+    if start_date > end_date:
+        st.sidebar.error("Start date must be before or equal to end date.")
+        start_date, end_date = end_date, start_date
+
+show_data = st.sidebar.checkbox("Show Raw Data", value=False)
 
 opportunity_type = st.sidebar.selectbox(
     "Opportunity Type",
@@ -373,8 +424,10 @@ opportunity_type = st.sidebar.selectbox(
 # Sidebar ISO Week Calendar
 show_iso_calendar = st.sidebar.checkbox("Show ISO Week Calendar", value=False)
 
+
+
 # Main content
-stage_df, loss_reason_df, weekly_df, total_opportunities, closed_won_count, closed_lost_count, other_stages_count = connect_to_salesforce()
+stage_df, loss_reason_df, weekly_df, total_opportunities, closed_won_count, closed_lost_count, other_stages_count = connect_to_salesforce(start_date, end_date)
 
 # Renewal Scorecard
 st.subheader("Renewal Opportunity Scorecard")
